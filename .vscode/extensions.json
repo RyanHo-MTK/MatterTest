@@ -20,6 +20,7 @@
         "ms-python.isort",
         "ms-python.mypy-type-checker",
         "ms-vscode.cpptools",
+        "llvm-vs-code-extensions.vscode-clangd",
         "msedge-dev.gnls",
         "redhat.vscode-yaml",
         "tamasfe.even-better-toml",
