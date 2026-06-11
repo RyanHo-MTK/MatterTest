@@ -57,7 +57,7 @@ jobs:
       - name: Build MT7933 Lighting App
         shell: bash
         run: |
-          ./scripts/checkout_submodules.py --platform mt793x
+          ./scripts/checkout_submodules.py --platform genio
           source scripts/activate.sh
           ./scripts/examples/gn_build_example.sh examples/lighting-app/genio out/lighting-app
 
