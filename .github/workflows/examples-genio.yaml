@@ -42,12 +42,9 @@ jobs:
     container:
       image: ghcr.io/project-chip/chip-build:latest
 
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -62,7 +59,7 @@ jobs:
           ./scripts/examples/gn_build_example.sh examples/lighting-app/genio out/lighting-app
 
       - name: Upload Bootstrap Logs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: ${{ always() && !env.ACT }}
         with:
           name: bootstrap-logs-mt7933
@@ -71,7 +68,7 @@ jobs:
             .environment/pigweed-venv/*.log
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: mt7933-lighting-bin
           path: out/lighting-app/*.bin
