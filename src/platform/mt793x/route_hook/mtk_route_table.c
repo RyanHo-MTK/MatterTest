@@ -85,7 +85,7 @@ mtk_route_entry_t * mtk_route_table_add_route_entry(const mtk_route_entry_t * ro
 
 int8_t mtk_route_table_remove_route_entry(mtk_route_entry_t * route_entry)
 {
-    if (route_entry < &s_route_entries[0] || route_entry > &s_route_entries[LWIP_ARRAYSIZE(s_route_entries)])
+    if (route_entry < &s_route_entries[0] || route_entry >= &s_route_entries[LWIP_ARRAYSIZE(s_route_entries)])
     {
         return -1;
     }
@@ -98,6 +98,7 @@ int8_t mtk_route_table_remove_route_entry(mtk_route_entry_t * route_entry)
             break;
         }
     }
+    s_route_entries[LWIP_ARRAYSIZE(s_route_entries) - 1].netif = NULL;
     return 0;
 }
 

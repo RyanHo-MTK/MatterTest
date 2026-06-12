@@ -325,18 +325,19 @@ CHIP_ERROR AppTask::Init()
     TEMPORARY_RETURN_IGNORED sWiFiNetworkCommissioningInstance.Init();
 #endif
 
+    // Initialize device attestation config before server init so Operational
+    // Credentials sees the configured provider during cluster construction.
+    SetDeviceAttestationCredentialsProvider(Examples::GetExampleDACProvider());
+
     // Init ZCL Data Model and start server
     static chip::CommonCaseDeviceServerInitParams initParams;
     (void) initParams.InitializeStaticResourcesBeforeServerInit();
     initParams.dataModelProvider = chip::app::CodegenDataModelProviderInstance(initParams.persistentStorageDelegate);
-    
+
     gExampleDeviceInfoProvider.SetStorageDelegate(initParams.persistentStorageDelegate);
     chip::DeviceLayer::SetDeviceInfoProvider(&gExampleDeviceInfoProvider);
-    
-    TEMPORARY_RETURN_IGNORED chip::Server::GetInstance().Init(initParams);
 
-    // Initialize device attestation config
-    SetDeviceAttestationCredentialsProvider(Examples::GetExampleDACProvider());
+    TEMPORARY_RETURN_IGNORED chip::Server::GetInstance().Init(initParams);
 
     // Create FreeRTOS sw timer for Function Selection.
     sFunctionTimer = xTimerCreate("FnTmr",          // Just a text name, not used by the RTOS kernel

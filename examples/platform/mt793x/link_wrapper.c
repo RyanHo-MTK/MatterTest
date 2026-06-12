@@ -119,6 +119,11 @@ int _read(int file, char * ptr, int len)
 {
     int DataIdx;
 
+    if (!__io_getchar)
+    {
+        return 0;
+    }
+
     for (DataIdx = 0; DataIdx < len; DataIdx++)
     {
         *ptr++ = __io_getchar();
