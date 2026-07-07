@@ -82,9 +82,17 @@ jobs:
     doxygen:
         name: Build Doxygen
 
+        # NOTE: Intentionally NOT using job-level `container:` here.
+        # The chip-build-doxygen:202 image is Alpine/musl-based and its libc
+        # lacks `pthread_getname_np`, which the runner's bundled Node 24
+        # (node24_alpine) requires. That breaks any JS-based action
+        # (e.g. actions/checkout, peaceiris/actions-gh-pages) when they are
+        # forced to run inside this container.
+        #
+        # Workaround: run checkout & deploy on the host runner (has proper
+        # glibc + Node 24), and only invoke the doxygen container for the
+        # actual doc generation step via `docker run`.
         runs-on: ubuntu-latest
-        container:
-            image: ghcr.io/project-chip/chip-build-doxygen:202
 
         if: github.actor != 'restyled-io[bot]'
 
@@ -93,8 +101,13 @@ jobs:
               run: echo ${{github.actor}}
             - name: Checkout
               uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-            - name: Generate
-              run: scripts/helpers/doxygen.sh
+            - name: Generate (inside doxygen container)
+              run: |
+                docker run --rm \
+                    -v "${{ github.workspace }}:/workspace" \
+                    -w /workspace \
+                    ghcr.io/project-chip/chip-build-doxygen:202 \
+                    scripts/helpers/doxygen.sh
             - name: Extract branch name
               shell: bash
               run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF##*/})"
