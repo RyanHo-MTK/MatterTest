@@ -34,12 +34,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Update Docs
-        uses: test-room-7/action-update-file@v2
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          file-path: docs/daily_pass_percentage.md
-          commit-msg: Update daily pass percentage
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          commit_message: Update daily pass percentage
+          file_pattern: docs/daily_pass_percentage.md
           branch: daily_pass_percentage
+          create_branch: true
       - name: Upload Logs
         uses: actions/upload-artifact@v7
         with:
@@ -55,4 +55,3 @@ jobs:
             recent_fails_logs
             workflow_pass_rate
           retention-days: 5
-        
