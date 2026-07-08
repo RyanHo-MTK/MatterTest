@@ -20,6 +20,7 @@
 #include <AppRootNode.h>
 #include <DeviceFactoryPlatformOverride.h>
 #include <LinuxCommissionableDataProvider.h>
+#include <PosixAudioManager.h>
 #include <TracingCommandLineArgument.h>
 #if CHIP_CONFIG_TRANSPORT_TRACE_ENABLED
 #include <TraceDecoder.h>
@@ -42,6 +43,8 @@
 #include <device-factory/DeviceFactory.h>
 #include <devices/device-type-parser/DeviceTypeParser.h>
 #include <devices/endpoint-id-allocator/DynamicEndpointIdAllocator.h>
+#include <oob-accessors/OOBAccessor.h>
+#include <oob-accessors/OOBAccessorRegistry.h>
 #include <platform/CommissionableDataProvider.h>
 #include <platform/DeviceInstanceInfoProvider.h>
 #include <platform/DiagnosticDataProvider.h>
@@ -52,10 +55,15 @@
 #include <AppCommandDelegate.h>
 #include <BleInit.h>
 #include <TermHandling.h>
+#if PW_RPC_ENABLED
+#include <Rpc.h>
+#include <oob-accessors/pigweed/PigweedAttributeAccessor.h>
+#include <pigweed/rpc_services/AccessInterceptorRegistry.h>
+#endif // PW_RPC_ENABLED
 #include <devices/boolean-state-sensor/BooleanStateSensorDevice.h>
 #include <devices/interface/SingleEndpointDevice.h>
 #include <devices/occupancy-sensor/OccupancySensorDevice.h>
-#include <devices/on-off-light/LoggingOnOffLightDevice.h>
+#include <devices/on-off-light/impl/LoggingOnOffLightDevice.h>
 
 using namespace chip;
 using namespace chip::app;
@@ -64,12 +72,15 @@ using namespace chip::DeviceLayer;
 using namespace chip::app::Clusters;
 using namespace chip::ArgParser;
 
+void ApplicationShutdown();
+
 namespace {
 AppMainLoopImplementation * gMainLoopImplementation = nullptr;
 
 Credentials::GroupDataProviderImpl gGroupDataProvider;
 chip::app::DefaultSafeAttributePersistenceProvider gSafeAttributePersistenceProvider;
 DefaultTimerDelegate gTimerDelegate;
+chip::app::PosixAudioManager gAudioManager;
 
 // To hold SPAKE2+ verifier, discriminator, passcode
 LinuxCommissionableDataProvider gCommissionableDataProvider;
@@ -195,6 +206,12 @@ public:
             }
             ReturnErrorOnFailure(
                 device->Register(endpointIdAllocator, mDataModelProvider, EndpointComposition::WithParent(entry.parentId)));
+            auto oobAccessor = DeviceFactory::GetInstance().CreateAccessor(entry.type, *device);
+            if (oobAccessor)
+            {
+                OOBAccessorRegistry::Instance().Register(*oobAccessor);
+                mConstructedAccessors.push_back(std::move(oobAccessor));
+            }
             mConstructedDevices.push_back(std::move(device));
         }
 
@@ -203,6 +220,7 @@ public:
 
     void Shutdown()
     {
+        mConstructedAccessors.clear();
         for (auto & device : mConstructedDevices)
         {
             device->Unregister(mDataModelProvider);
@@ -224,6 +242,8 @@ private:
 
     AppRootNode mRootNode;
     std::vector<std::unique_ptr<DeviceInterface>> mConstructedDevices;
+
+    std::vector<std::unique_ptr<chip::app::OOBAccessor>> mConstructedAccessors;
 };
 
 void SetupNamedPipe(CodeDrivenDataModelDevices & devices, const char * namedPipePath)
@@ -290,7 +310,7 @@ void RunApplication(AppMainLoopImplementation * mainLoop = nullptr)
         .storageDelegate   = *initParams.persistentStorageDelegate,  //
     });
 
-    RegisterDeviceFactoryOverrides(gTimerDelegate, initParams.persistentStorageDelegate);
+    RegisterDeviceFactoryOverrides(gTimerDelegate, initParams.persistentStorageDelegate, gAudioManager);
 
 #if CHIP_CONFIG_ENABLE_GROUPCAST
     // TODO(#72056): Once groupcast is enabled by default, this should not be dependent on the app argument.
@@ -396,6 +416,14 @@ void RunApplication(AppMainLoopImplementation * mainLoop = nullptr)
     // of how to parse transport tracing options from the command line.
 #endif // CHIP_CONFIG_TRANSPORT_TRACE_ENABLED
 
+#if PW_RPC_ENABLED
+    static chip::app::PigweedAttributeAccessor sPwOobAccessor;
+    chip::rpc::PigweedDebugAccessInterceptorRegistry::Instance().Register(&sPwOobAccessor);
+
+    chip::rpc::Init(33000); // TODO: Add an arg for Pw port.
+    ChipLogProgress(AppServer, "PW_RPC initialized.");
+#endif // PW_RPC_ENABLED
+
     // Init ZCL Data Model and CHIP App Server
     CHIP_ERROR err = Server::GetInstance().Init(initParams);
     if (err != CHIP_NO_ERROR)
@@ -454,6 +482,8 @@ void RunApplication(AppMainLoopImplementation * mainLoop = nullptr)
 #if defined(ENABLE_TRACING) && ENABLE_TRACING
     tracing_setup.StopTracing();
 #endif
+
+    ApplicationShutdown();
 }
 
 void EventHandler(const DeviceLayer::ChipDeviceEvent * event, intptr_t arg)
@@ -531,7 +561,10 @@ CHIP_ERROR Initialize(int argc, char * argv[])
 
 } // namespace
 
-void ApplicationShutdown() {}
+void ApplicationShutdown()
+{
+    gAudioManager.Shutdown();
+}
 
 int main(int argc, char * argv[])
 {
