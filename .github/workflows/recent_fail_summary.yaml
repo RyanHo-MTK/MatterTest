@@ -40,6 +40,7 @@ jobs:
           file_pattern: docs/daily_pass_percentage.md
           branch: daily_pass_percentage
           create_branch: true
+          push_options: '--force'
       - name: Upload Logs
         uses: actions/upload-artifact@v7
         with:
